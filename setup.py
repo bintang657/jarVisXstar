@@ -6,7 +6,7 @@ setup(
     version="2.2.0",
     author="bintang657",
     author_email="dwatu8720@gmail.com",
-    description="Perpustakaan keamanan web paling canggih - WAF, JWT, Rate Limiter, Honeypot, dan banyak lagi.",
+    description="perpustakaan keamanan s l a t e",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/bintang657/jarVisXstar",
