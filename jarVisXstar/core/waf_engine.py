@@ -7,33 +7,63 @@ from typing import Dict, Any, Tuple, List, Optional
 class ThreatSignature:
     """Database tanda tangan ancaman - paling update"""
     SQLI = [
-        r"(?i)(\bSELECT\b.*\bFROM\b.*\bWHERE\b)", r"(?i)(\bUNION\b.*\bSELECT\b)",
-        r"(?i)(\bINSERT\b.*\bINTO\b)", r"(?i)(\bDELETE\b.*\bFROM\b)",
-        r"(?i)(\bDROP\b.*\bTABLE\b)", r"(?i)(\bEXEC\b.*\bXP_\w+)",
-        r"(?i)('.*\bOR\b.*'.*'.*')", r"(?i)(\bSLEEP\b\s*\()",
-        r"(?i)(\bBENCHMARK\b\s*\()", r"(?i)(\bWAITFOR\b.*\bDELAY\b)"
+        r"(?i)(\bSELECT\b.*\bFROM\b.*\bWHERE\b)",
+        r"(?i)(\bUNION\b.*\bSELECT\b)",
+        r"(?i)(\bINSERT\b.*\bINTO\b)",
+        r"(?i)(\bDELETE\b.*\bFROM\b)",
+        r"(?i)(\bDROP\b.*\bTABLE\b)",
+        r"(?i)(\bEXEC\b.*\bXP_\w+)",
+        r"(?i)('.*\bOR\b.*'.*'.*')",
+        r"(?i)(\bSLEEP\b\s*\()",
+        r"(?i)(\bBENCHMARK\b\s*\()",
+        r"(?i)(\bWAITFOR\b.*\bDELAY\b)",
+        # POLA BARU UNTUK OR/AND
+        r"(?i)(''\s*OR\s*[0-9]+=[0-9]+)",
+        r"(?i)(''\s*AND\s*[0-9]+=[0-9]+)",
+        r"(?i)(''\s*OR\s+''='')",
+        r"(?i)(--\s*$)",
     ]
     XSS = [
-        r"<script.*?>.*?</script>", r"(?i)javascript\s*:",
-        r"(?i)on\w+\s*=", r"<iframe.*?>", r"<img.*?onerror=",
-        r"<svg.*?onload=", r"(?i)eval\s*\(.*?\)",
-        r"document\.cookie", r"window\.location", r"alert\s*\("
+        r"<script.*?>.*?</script>",
+        r"(?i)javascript\s*:",
+        r"(?i)on\w+\s*=",
+        r"<iframe.*?>",
+        r"<img.*?onerror=",
+        r"<svg.*?onload=",
+        r"(?i)eval\s*\(.*?\)",
+        r"document\.cookie",
+        r"window\.location",
+        r"alert\s*\("
     ]
     RCE = [
         r"(?i);\s*(wget|curl|bash|sh|python|nc|rm|chmod|whoami|id)",
-        r"\$\{.*?\}", r"`.*?`", r"(?i)\|\s*sh", r"(?i)&\s*whoami",
-        r"(?i)system\s*\(", r"(?i)popen\s*\(", r"(?i)exec\s*\("
+        r"\$\{.*?\}",
+        r"`.*?`",
+        r"(?i)\|\s*sh",
+        r"(?i)&\s*whoami",
+        r"(?i)system\s*\(",
+        r"(?i)popen\s*\(",
+        r"(?i)exec\s*\("
     ]
     LFI = [
-        r"\.\./\.\./", r"/etc/passwd", r"/var/log/",
-        r"php://filter", r"file://", r"expect://"
+        r"\.\./\.\./",
+        r"/etc/passwd",
+        r"/var/log/",
+        r"php://filter",
+        r"file://",
+        r"expect://"
     ]
     SSRF = [
-        r"http://169.254.169.254", r"http://metadata.google",
-        r"http://127.0.0.1", r"http://localhost", r"http://0.0.0.0"
+        r"http://169.254.169.254",
+        r"http://metadata.google",
+        r"http://127.0.0.1",
+        r"http://localhost",
+        r"http://0.0.0.0"
     ]
     NO_SQLI = [
-        r"(?i)\{\s*\$gt\s*:", r"(?i)\{\s*\$ne\s*:", r"(?i)\{\s*\$where\s*:",
+        r"(?i)\{\s*\$gt\s*:",
+        r"(?i)\{\s*\$ne\s*:",
+        r"(?i)\{\s*\$where\s*:",
         r"(?i)\{\s*\$regex\s*:"
     ]
 
@@ -121,7 +151,8 @@ class WAFEngine:
 
         report["score"] = min(score, 100)
 
-        if report["score"] >= 55 or client_ip in self.ip_blacklist:
+        # THRESHOLD DIUBAH MENJADI 25 (lebih ketat)
+        if report["score"] >= 25 or client_ip in self.ip_blacklist:
             report["blocked"] = True
             report["action"] = "BLOCK"
             self.total_blocks += 1
