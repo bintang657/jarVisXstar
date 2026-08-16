@@ -7,7 +7,6 @@ class ThreatIntel:
     def __init__(self, cache_file: str = "signature_cache.json"):
         self.cache_file = cache_file
         self.signatures = self._load_cache()
-        # Jika cache kosong, isi dengan signature bawaan
         if not self.signatures:
             self.signatures = [
                 "SQLi: select.*from",

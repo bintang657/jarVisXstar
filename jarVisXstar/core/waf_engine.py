@@ -1,8 +1,3 @@
-# ============================================================
-# jarVisXstar WAF - EXTREME EDITION v2.2 (FINAL)
-# By SLATE ASI - Ultimate Offensive Security Defense
-# ============================================================
-
 import re
 import time
 import hashlib
@@ -20,9 +15,8 @@ except ImportError:
     REQUESTS_AVAILABLE = False
 
 class ThreatSignature:
-    """Database signature - Extreme Edition"""
     SQLI = [
-        r"(?i)(\bSELECT\b.*\bFROM\b)",          # select from tanpa where
+        r"(?i)(\bSELECT\b.*\bFROM\b)",
         r"(?i)(\bSELECT\b.*\bFROM\b.*\bWHERE\b)",
         r"(?i)(\bUNION\b.*\bSELECT\b)",
         r"(?i)(\bINSERT\b.*\bINTO\b)",
@@ -68,7 +62,7 @@ class WAFEngine:
         self.webhook_url = self.config.get('webhook_url', None)
         self.redis = None
         self.redis_enabled = False
-        self._ip_paths = defaultdict(lambda: deque(maxlen=50))  # <-- FIX BEHAVIORAL
+        self._ip_paths = defaultdict(lambda: deque(maxlen=50))
         if 'redis_host' in self.config:
             try:
                 import redis
@@ -147,7 +141,6 @@ class WAFEngine:
             "honeypot_response": None
         }
 
-        # HONEYPOT AKTIF SETIAP SAAT
         honeypot_paths = ['/admin', '/config', '/backup', '/.env', '/wp-admin', '/phpmyadmin']
         if path in honeypot_paths:
             report['honeypot_triggered'] = True

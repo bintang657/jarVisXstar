@@ -7,7 +7,6 @@ from typing import Optional, Dict
 
 class JWTGuard:
     def __init__(self, secret_key: str, redis_host: str = 'localhost', redis_port: int = 6379):
-        # Jika key kurang dari 32 byte, hash dengan SHA256
         if len(secret_key) < 32:
             secret_key = hashlib.sha256(secret_key.encode()).hexdigest()
         self.secret = secret_key
@@ -16,10 +15,10 @@ class JWTGuard:
         try:
             import redis
             self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True, socket_timeout=1)
-            self.redis.ping()  # Test koneksi
+            self.redis.ping()
             self.redis_enabled = True
         except:
-            print("[WARN] Redis tidak tersedia, blacklist JWT dinonaktifkan.")
+            pass
         self.blacklist_prefix = "jvx:bl:"
 
     def generate(self, user_id: str, extra: Optional[Dict] = None) -> str:
@@ -42,13 +41,11 @@ class JWTGuard:
                 if self.redis.exists(f"{self.blacklist_prefix}{jti}"):
                     return None
             return payload
-        except Exception as e:
-            print("[DEBUG] Verify error:", e)
+        except:
             return None
 
     def revoke(self, token: str):
         if not self.redis_enabled:
-            print("[WARN] Redis tidak aktif, revoke diabaikan.")
             return
         try:
             payload = jwt.decode(token, self.secret, algorithms=["HS512"], options={"verify_exp": False})
