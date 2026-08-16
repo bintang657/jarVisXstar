@@ -5,7 +5,7 @@ from jarVisXstar.middleware.flask_middleware import JarVisXstarFlask
 app = Flask(__name__)
 JarVisXstarFlask(app)
 
-TARGET_URL = "https://website-tujuan-king.com"
+TARGET_URL = "https://clideo.com/id/video-converter"
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'])

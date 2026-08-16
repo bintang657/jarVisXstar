@@ -1,54 +1,68 @@
-import requests
+import redis
 import json
-import os
-from typing import List
+import time
+import requests
+from collections import defaultdict
 
-class ThreatIntel:
-    def __init__(self, cache_file: str = "signature_cache.json"):
-        self.cache_file = cache_file
-        self.signatures = self._load_cache()
-        if not self.signatures:
-            self.signatures = [
-                "SQLi: select.*from",
-                "XSS: <script>",
-                "RCE: ; wget",
-                "LFI: ../",
-                "SSRF: 169.254.169.254"
-            ]
-            self._save_cache()
+class GodThreatIntel:
+    def __init__(self, redis_client=None, api_key=None):
+        self.redis = redis_client
+        self.api_key = api_key
+        self.cache = defaultdict(lambda: {'score': 0, 'updated': 0})
+        self.cache_ttl = 3600
+        self.external_sources = [
+            'https://api.abuseipdb.com/api/v2/check',
+            'https://api.virustotal.com/v3/ip_addresses/',
+        ]
 
-    def update(self):
-        try:
-            urls = [
-                "https://rules.emergingthreats.net/open/suricata-6.0.8/emerging.rules",
-                "https://raw.githubusercontent.com/SpiderLabs/owasp-modsecurity-crs/v3.3.4/rules/REQUEST-941-APPLICATION-ATTACK-XSS.conf"
-            ]
-            new_sigs = []
-            for url in urls:
+    def get_ip_reputation(self, ip):
+        cache_key = f"intel:{ip}"
+        if self.redis:
+            cached = self.redis.get(cache_key)
+            if cached:
+                data = json.loads(cached)
+                if time.time() - data['updated'] < self.cache_ttl:
+                    return data['score']
+        if ip in self.cache and time.time() - self.cache[ip]['updated'] < self.cache_ttl:
+            return self.cache[ip]['score']
+        score = 0.0
+        if self.api_key:
+            for source in self.external_sources:
                 try:
-                    resp = requests.get(url, timeout=5)
-                    if resp.status_code == 200:
-                        lines = resp.text.split("\n")
-                        for line in lines:
-                            if "alert" in line and "sid" in line:
-                                new_sigs.append(line[:200])
+                    if 'abuseipdb' in source:
+                        headers = {'Key': self.api_key, 'Accept': 'application/json'}
+                        resp = requests.get(f"{source}?ipAddress={ip}", headers=headers, timeout=5)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            score = max(score, data.get('data', {}).get('abuseConfidenceScore', 0) / 100.0)
+                    elif 'virustotal' in source:
+                        headers = {'x-apikey': self.api_key}
+                        resp = requests.get(f"{source}{ip}", headers=headers, timeout=5)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            stats = data.get('data', {}).get('attributes', {}).get('last_analysis_stats', {})
+                            malicious = stats.get('malicious', 0)
+                            total = sum(stats.values()) or 1
+                            score = max(score, malicious / total)
                 except:
-                    continue
-            if new_sigs:
-                self.signatures = list(set(self.signatures + new_sigs))[:500]
-                self._save_cache()
-        except:
-            pass
+                    pass
+        if self.redis:
+            self.redis.setex(cache_key, self.cache_ttl, json.dumps({'score': score, 'updated': time.time()}))
+        self.cache[ip] = {'score': score, 'updated': time.time()}
+        return score
 
-    def _load_cache(self) -> List[str]:
-        if os.path.exists(self.cache_file):
-            try:
-                with open(self.cache_file, "r") as f:
-                    return json.load(f)
-            except:
-                return []
+    def get_blocklist(self):
+        if self.redis:
+            blocklist = self.redis.smembers("global_blocklist")
+            return [ip.decode() for ip in blocklist]
         return []
 
-    def _save_cache(self):
-        with open(self.cache_file, "w") as f:
-            json.dump(self.signatures, f)
+    def add_to_blocklist(self, ip, reason='manual'):
+        if self.redis:
+            self.redis.sadd("global_blocklist", ip)
+            self.redis.setex(f"block_reason:{ip}", 86400, reason)
+
+    def remove_from_blocklist(self, ip):
+        if self.redis:
+            self.redis.srem("global_blocklist", ip)
+            self.redis.delete(f"block_reason:{ip}")
