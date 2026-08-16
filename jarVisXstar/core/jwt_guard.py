@@ -2,14 +2,24 @@ import jwt
 import time
 import hashlib
 import os
-import redis
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 
 class JWTGuard:
     def __init__(self, secret_key: str, redis_host: str = 'localhost', redis_port: int = 6379):
+        # Jika key kurang dari 32 byte, hash dengan SHA256
+        if len(secret_key) < 32:
+            secret_key = hashlib.sha256(secret_key.encode()).hexdigest()
         self.secret = secret_key
-        self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+        self.redis_enabled = False
+        self.redis = None
+        try:
+            import redis
+            self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True, socket_timeout=1)
+            self.redis.ping()  # Test koneksi
+            self.redis_enabled = True
+        except:
+            print("[WARN] Redis tidak tersedia, blacklist JWT dinonaktifkan.")
         self.blacklist_prefix = "jvx:bl:"
 
     def generate(self, user_id: str, extra: Optional[Dict] = None) -> str:
@@ -27,13 +37,19 @@ class JWTGuard:
     def verify(self, token: str) -> Optional[Dict]:
         try:
             payload = jwt.decode(token, self.secret, algorithms=["HS512"], issuer="jarVisXstar")
-            if self.redis.exists(f"{self.blacklist_prefix}{payload['jti']}"):
-                return None
+            if self.redis_enabled and self.redis:
+                jti = payload.get("jti")
+                if self.redis.exists(f"{self.blacklist_prefix}{jti}"):
+                    return None
             return payload
-        except:
+        except Exception as e:
+            print("[DEBUG] Verify error:", e)
             return None
 
     def revoke(self, token: str):
+        if not self.redis_enabled:
+            print("[WARN] Redis tidak aktif, revoke diabaikan.")
+            return
         try:
             payload = jwt.decode(token, self.secret, algorithms=["HS512"], options={"verify_exp": False})
             jti = payload.get("jti")
